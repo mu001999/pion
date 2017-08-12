@@ -1,2 +1,2 @@
-# pion
-An Async Web Framework.
+# Pion
+Pion is simple.
