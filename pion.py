@@ -1,3 +1,9 @@
+
+__author__ = 'IceBo'
+__version__ = '0.0.1'
+__license__ = 'MIT'
+
+
 import wsgiref
 import sys
 import re
@@ -27,7 +33,6 @@ class WSGIRefServer(ServerAdapter):
 
 
 def WSGIHandler(environ, start_response):
-    """The bottle WSGI-handler."""
     global request
     global response
     request.bind(environ)
@@ -35,7 +40,7 @@ def WSGIHandler(environ, start_response):
     try:
         handler, args = match_url(request.path, request.method)
         if not handler:
-            raise HTTPError(404, "Not found")
+            raise BaseException
         output = handler(**args)
     except:
         raise BaseException
@@ -52,7 +57,6 @@ def WSGIHandler(environ, start_response):
     for c in response.COOKIES.values():
         response.header.add('Set-Cookie', c.OutputString())
 
-    # finish
     status = '%d %s' % (response.status, HTTP_CODES[response.status])
     start_response(status, list(response.header.items()))
     return output
@@ -93,7 +97,7 @@ class Request(threading.local):
                 if len(value) == 1:
                     self._GET[key] = value[0]
                 else:
-                    self._GET[KEY] = value
+                    self._GET[key] = value
         return self._GET
 
     @property
@@ -204,7 +208,7 @@ def match_url(url, method='GET'):
       return (route, {})
     
     routes = ROUTES_REGEXP.get(method,[])
-    for i in xrange(len(routes)):
+    for i in range(len(routes)):
         match = routes[i][0].match(url)
         if match:
             handler = routes[i][1]
