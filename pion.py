@@ -14,6 +14,10 @@ __version__ = '0.0.1'
 __license__ = 'MIT'
 
 
+class PionException(Exception):
+    pass
+
+
 def match_url(url, method='GET'):
     url = '/' + url.strip().lstrip("/")
     route = ROUTES_SIMPLE.get(method, {}).get(url, None)
@@ -78,8 +82,13 @@ def WSGIHandler(environ, start_response):
     global response
     request.bind(environ)
     response.bind()
-    handler, args = match_url(request.path, request.method)
-    output = handler(**args)
+    try:
+        handler, args = match_url(request.path, request.method)
+        if not handler:
+            raise ConnectionError('404 Not found')
+        output = handler(**args) if args is not None else handler()
+    except PionException:
+        output = "404 Not Found"
 
     if isinstance(output, str):
         output = output.encode('utf-8')
