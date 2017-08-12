@@ -70,7 +70,7 @@ class Request(threading.local):
         self._COOKIES = None
         self.path = self._environ.get('PATH_INFO', '/').strip()
         if not self.path.startswith('/'):
-            self.path = '/' + slef.path
+            self.path = '/' + self.path
     
     @property
     def method(self):
