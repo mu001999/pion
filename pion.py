@@ -1,15 +1,14 @@
-
-__author__ = 'IceBo'
-__version__ = '0.0.1'
-__license__ = 'MIT'
-
-
 import wsgiref
 import sys
 import re
 import threading
 import cgi
 from http.cookies import SimpleCookie
+
+
+__author__ = 'IceBo'
+__version__ = '0.0.1'
+__license__ = 'MIT'
 
 
 class ServerAdapter(object):
