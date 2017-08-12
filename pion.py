@@ -1,14 +1,57 @@
 import wsgiref
 import sys
+import random
 import re
 import threading
 import cgi
 from http.cookies import SimpleCookie
+from wsgiref.simple_server import make_server
+from urllib.parse import parse_qs
 
 
 __author__ = 'IceBo'
 __version__ = '0.0.1'
 __license__ = 'MIT'
+
+
+def match_url(url, method='GET'):
+    url = '/' + url.strip().lstrip("/")
+    route = ROUTES_SIMPLE.get(method, {}).get(url, None)
+    if route:
+        return route, {}
+
+    routes = ROUTES_REGEXP.get(method, [])
+    for i in range(len(routes)):
+        match = routes[i][0].match(url)
+        if match:
+            handler = routes[i][1]
+            if i > 0 and OPTIMIZER and random.random() <= 0.001:
+                routes[i - 1], routes[i] = routes[i], routes[i - 1]
+            return handler, match.groupdict()
+    return None, None
+
+
+def compile_route(route):
+    route = route.strip().lstrip('$^/ ').rstrip('$^ ')
+    route = re.sub(r':([a-zA-Z_]+)(?P<uniq>[^\w/])(?P<re>.+?)(?P=uniq)', r'(?P<\1>\g<re>)', route)
+    route = re.sub(r':([a-zA-Z_]+)', r'(?P<\1>[^/]+)', route)
+    return re.compile('^/%s$' % route)
+
+
+def add_route(route, handler, method='GET', simple=False):
+    method = method.strip().upper()
+    if re.match(r'^/(\w+/)*\w*$', route) or simple:
+        ROUTES_SIMPLE.setdefault(method, {})[route] = handler
+    else:
+        route = compile_route(route)
+        ROUTES_REGEXP.setdefault(method, []).append([route, handler])
+
+
+def route(url, **kargs):
+    def wrapper(handler):
+        add_route(url, handler, **kargs)
+        return handler
+    return wrapper
 
 
 class ServerAdapter(object):
@@ -26,7 +69,6 @@ class ServerAdapter(object):
 
 class WSGIRefServer(ServerAdapter):
     def run(self, handler):
-        from wsgiref.simple_server import make_server
         server = make_server(self.host, self.port, handler)
         server.serve_forever()
 
@@ -36,27 +78,17 @@ def WSGIHandler(environ, start_response):
     global response
     request.bind(environ)
     response.bind()
-    try:
-        handler, args = match_url(request.path, request.method)
-        if not handler:
-            raise BaseException
-        output = handler(**args)
-    except:
-        raise BaseException
+    handler, args = match_url(request.path, request.method)
+    output = handler(**args)
 
-    if hasattr(output, 'read'):
-        fileoutput = output
-        if 'wsgi.file_wrapper' in environ:
-            output = environ['wsgi.file_wrapper'](fileoutput)
-        else:
-            output = iter(lambda: fileoutput.read(8192), '')
-    elif isinstance(output, str):
+    if isinstance(output, str):
+        output = output.encode('utf-8')
         output = [output]
 
     for c in response.COOKIES.values():
-        response.header.add('Set-Cookie', c.OutputString())
+        response.headeradd('Set-Cookie', c.OutputString())
 
-    status = '%d %s' % (response.status, HTTP_CODES[response.status])
+    status = '{} {}'.format(response.status, HTTP_CODES[response.status])
     start_response(status, list(response.header.items()))
     return output
 
@@ -178,7 +210,7 @@ class Response(threading.local):
     @property
     def COOKIES(self):
         if not self._COOKIES:
-            self._COOKIES = Cookie.SimpleCookie()
+            self._COOKIES = SimpleCookie()
         return self._COOKIES
 
     def set_cookie(self, key, value, **kargs):
@@ -198,46 +230,6 @@ class Response(threading.local):
         None,
         get_content_type.__doc__
     )
-
-
-def match_url(url, method='GET'):
-    url = '/' + url.strip().lstrip("/")
-    route = ROUTES_SIMPLE.get(method,{}).get(url,None)
-    if route:
-      return (route, {})
-    
-    routes = ROUTES_REGEXP.get(method,[])
-    for i in range(len(routes)):
-        match = routes[i][0].match(url)
-        if match:
-            handler = routes[i][1]
-            if i > 0 and OPTIMIZER and random.random() <= 0.001:
-              routes[i-1], routes[i] = routes[i], routes[i-1]
-            return (handler, match.groupdict())
-    return (None, None)
-
-
-def compile_route(route):
-    route = route.strip().lstrip('$^/ ').rstrip('$^ ')
-    route = re.sub(r':([a-zA-Z_]+)(?P<uniq>[^\w/])(?P<re>.+?)(?P=uniq)', r'(?P<\1>\g<re>)', route)
-    route = re.sub(r':([a-zA-Z_]+)', r'(?P<\1>[^/]+)', route)
-    return re.compile('^/%s$' % route)
-
-
-def add_route(route, handler, method='GET', simple=False):
-    method = method.strip().upper()
-    if re.match(r'^/(\w+/)*\w*$', route) or simple:
-        ROUTES_SIMPLE.setdefault(method, {})[route] = handler
-    else:
-        route = compile_route(route)
-        ROUTES_REGEXP.setdefault(method, []).append([route, handler])
-        
-
-def route(url, **kargs):
-    def wrapper(handler):
-        add_route(url, handler, **kargs)
-        return handler
-    return wrapper
 
 
 def run(server=WSGIRefServer, host='127.0.0.1', port=8000, optinmize=False, **kargs):
