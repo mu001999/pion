@@ -1,5 +1,5 @@
 # Pion
-Pion is simple and easy to learn.
+Pion is simple.
 
 ### Example
 ```python
@@ -17,4 +17,4 @@ run(host='127.0.0.1', port=8000)
 ```
 
 ### TODO
-Make it async.
++ [ ] Make it async.
